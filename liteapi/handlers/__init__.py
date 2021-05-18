@@ -1,0 +1,1 @@
+from .staticfiles import StaticFiles
