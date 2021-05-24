@@ -1,3 +1,5 @@
 # LiteAPI
 
-LiteAPI is a lightweight [ASGI](https://asgi.readthedocs.io/en/latest/) framework.
+LiteAPI - легковесный [ASGI](https://asgi.readthedocs.io/en/latest/) веб-фрэймворк.
+
+Список изменений - [CHANGELOG](CHANGELOG.md)

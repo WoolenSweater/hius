@@ -1,31 +1,47 @@
-from typing import Sequence, Dict, Union, Type, Callable
+from typing import (
+    Callable,
+    Sequence,
+    Union,
+    Dict,
+    Type,
+    Any
+)
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.exceptions import ExceptionMiddleware
-from starlette.types import ASGIApp, Receive, Scope, Send
-from .routing import Routes, Router
-
-ExceptionHandlers = Dict[Union[int, Type[Exception]], Callable]
+from starlette.types import Scope, Receive, Send, ASGIApp
+from liteapi.types import ExceptionHandlers
+from liteapi.routing.routes import BaseRoute
+from liteapi.routing import Router
+from liteapi.utils import AttrScope
 
 
 class LiteAPI:
     def __init__(self,
                  debug: bool = False,
                  router: Router = None,
-                 routes: Sequence[Routes] = None,
+                 routes: Sequence[BaseRoute] = None,
                  exception_handlers: ExceptionHandlers = None) -> None:
         self.debug = debug
-        self.router = router or Router(routes=routes)
+        self.router = self.__prepare_router(router, routes)
 
         self.exception_handlers = exception_handlers or {}
 
         self.middleware = []
         self.middleware_stack = self.build_middleware_stack()
 
+    def __prepare_router(self,
+                         router: Router,
+                         routes: Sequence[BaseRoute]) -> Router:
+        if all((router, routes)):
+            raise RuntimeError('either "router", or '
+                               '"routes" must be specified')
+        return router or Router(routes=routes)
+
     async def __call__(self,
                        scope: Scope,
                        receive: Receive,
                        send: Send) -> None:
-        scope['app'] = self
+        scope = AttrScope(self, scope)
         await self.middleware_stack(scope, receive, send)
 
     def build_middleware_stack(self) -> ASGIApp:
@@ -57,10 +73,18 @@ class LiteAPI:
                   endpoint: Callable,
                   methods: Sequence[str] = None,
                   name: str = None) -> None:
-        self.router._bind(path, endpoint, methods, name)
+        self.router._route(path, endpoint, methods, name)
 
-    def add_middleware(self, md_cls, **md_options) -> None:
-        self.middleware.append((md_cls, md_options))
+    def add_websocket(self,
+                      path: str,
+                      endpoint: Callable,
+                      name: str = None) -> None:
+        self.router._websocket(path, endpoint, name)
+
+    def add_middleware(self,
+                       mw_cls: ASGIApp,
+                       **mw_options: Dict[str, Any]) -> None:
+        self.middleware.append((mw_cls, mw_options))
 
     def add_exception_handler(self,
                               exc: Union[int, Type[Exception]],
@@ -75,7 +99,15 @@ class LiteAPI:
               methods: Sequence[str] = None,
               name: str = None) -> Callable:
         def decorator(endpoint: Callable) -> Callable:
-            self.router._bind(path, endpoint, methods, name)
+            self.router._route(path, endpoint, methods, name)
+            return endpoint
+        return decorator
+
+    def websocket(self,
+                  path: str,
+                  name: str = None) -> Callable:
+        def decorator(endpoint: Callable) -> Callable:
+            self.router._websocket(path, endpoint, name)
             return endpoint
         return decorator
 

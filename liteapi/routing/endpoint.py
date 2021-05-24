@@ -1,54 +1,120 @@
-from typing import Callable, Dict, Any
+from typing import Optional, Callable, Type
 from inspect import isclass, isfunction, iscoroutinefunction
 from starlette.concurrency import run_in_threadpool
-from starlette.types import Receive, Scope, Send
+from starlette.websockets import WebSocket
 from starlette.requests import Request
+from starlette.types import Receive, Send
+from liteapi.types import AttrScope
 
 
-class Endpoint:
-    def __init__(self, endpoint):
-        self._path_params = {}
-        self._handler = self.__prepare(endpoint)
-        self._is_class = self.__is_class(endpoint)
+class BaseEndpoint:
 
-        self._name = self.__get_name()
+    __slots__ = 'handler', 'name'
 
-    def __prepare(self, endpoint: Callable) -> Callable:
-        return endpoint() if isclass(endpoint) else endpoint
-
-    def __is_class(self, endpoint: Callable) -> bool:
-        return False if isfunction(endpoint) else True
-
-    def __get_name(self) -> str:
-        if self._is_class:
-            return self._handler.__class__.__name__
-        else:
-            return self._handler.__name__
-
-    @property
-    def name(self):
-        return self._name
-
-    def set_path_params(self, path_params: Dict[str, Any]) -> None:
-        self._path_params = path_params
+    def __init__(self, endpoint: Callable, *, name: str) -> None:
+        self.handler = endpoint
+        self.name = name
 
     async def __call__(self,
-                       scope: Scope,
+                       scope: AttrScope,
                        receive: Receive,
                        send: Send) -> None:
-        scope['path_params'] = self._path_params
+        raise NotImplementedError
+
+    async def _handle(self,
+                      handler: Callable,
+                      request: Request) -> Optional[Callable]:
+        if iscoroutinefunction(handler):
+            return await handler(request)
+        else:
+            return await run_in_threadpool(handler, request)
+
+
+class HTTPBaseEndpoint(BaseEndpoint):
+
+    async def __call__(self,
+                       scope: AttrScope,
+                       receive: Receive,
+                       send: Send) -> None:
         request = Request(scope, receive)
         handler = self._get_handler(request)
         response = await self._handle(handler, request)
         await response(scope, receive, send)
 
-    def _get_handler(self, request: Request) -> Callable:
-        if self._is_class:
-            return getattr(self._handler, request.method.lower())
-        return self._handler
 
-    async def _handle(self, handler: Callable, request: Request) -> None:
-        if iscoroutinefunction(handler):
-            return await handler(request)
-        else:
-            return await run_in_threadpool(handler, request)
+class WebsocketBaseEndpoint(BaseEndpoint):
+
+    async def __call__(self,
+                       scope: AttrScope,
+                       receive: Receive,
+                       send: Send) -> None:
+        websocket = WebSocket(scope, receive, send)
+        handler = self._get_handler(websocket)
+        await self._handle(handler, websocket)
+
+
+# ---
+
+
+class HTTPFuncEndpoint(HTTPBaseEndpoint):
+
+    def __init__(self, endpoint):
+        super().__init__(endpoint, name=endpoint.__name__)
+
+    def _get_handler(self, request: Request) -> Callable:
+        return self.handler
+
+
+class HTTPClassEndpoint(HTTPBaseEndpoint):
+
+    def __init__(self, endpoint):
+        super().__init__(endpoint, name=endpoint.__class__.__name__)
+
+    def _get_handler(self, request: Request) -> Callable:
+        return getattr(self.handler, request.method.lower())
+
+
+class WebsocketFuncEndpoint(WebsocketBaseEndpoint):
+
+    def __init__(self, endpoint) -> None:
+        super().__init__(endpoint, name=endpoint.__name__)
+
+    def _get_handler(self, request: Request) -> Callable:
+        return self.handler
+
+
+class WebsocketClassEndpoint(WebsocketBaseEndpoint):
+
+    def __init__(self, endpoint) -> None:
+        super().__init__(endpoint, name=endpoint.__class__.__name__)
+
+    def _get_handler(self, request: Request) -> Callable:
+        return self.handler
+
+
+# ---
+
+
+def get_http_endpoint(func_or_class) -> Type[BaseEndpoint]:
+    return _get_endpoint(func_or_class,
+                         func_endpoini=HTTPFuncEndpoint,
+                         class_endpoint=HTTPClassEndpoint)
+
+
+def get_websocket_endpoint(func_or_class) -> Type[BaseEndpoint]:
+    return _get_endpoint(func_or_class,
+                         func_endpoini=WebsocketFuncEndpoint,
+                         class_endpoint=WebsocketClassEndpoint)
+
+
+def _get_endpoint(func_or_class,
+                  *,
+                  func_endpoini,
+                  class_endpoint) -> Type[BaseEndpoint]:
+    if isfunction(func_or_class):
+        return func_endpoini(func_or_class)
+
+    if isclass(func_or_class):
+        return class_endpoint(func_or_class())
+
+    return class_endpoint(func_or_class)

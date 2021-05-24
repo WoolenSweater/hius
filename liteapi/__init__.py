@@ -1,1 +1,1 @@
-from .app import LiteAPI
+from liteapi.app import LiteAPI
