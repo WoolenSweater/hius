@@ -3,8 +3,7 @@ from inspect import isclass, isfunction, iscoroutinefunction
 from starlette.concurrency import run_in_threadpool
 from starlette.websockets import WebSocket
 from starlette.requests import Request
-from starlette.types import Receive, Send
-from liteapi.types import AttrScope
+from starlette.types import Scope, Receive, Send
 
 
 class BaseEndpoint:
@@ -16,44 +15,32 @@ class BaseEndpoint:
         self.name = name
 
     async def __call__(self,
-                       scope: AttrScope,
+                       scope: Scope,
                        receive: Receive,
                        send: Send) -> None:
         raise NotImplementedError
 
-    async def _handle(self,
-                      handler: Callable,
-                      request: Request) -> Optional[Callable]:
+    async def _handle(self, handler: Callable, *args) -> Optional[Callable]:
         if iscoroutinefunction(handler):
-            return await handler(request)
+            return await handler(*args)
         else:
-            return await run_in_threadpool(handler, request)
+
+            return await run_in_threadpool(handler, *args)
+
+
+# ---
 
 
 class HTTPBaseEndpoint(BaseEndpoint):
 
     async def __call__(self,
-                       scope: AttrScope,
+                       scope: Scope,
                        receive: Receive,
                        send: Send) -> None:
         request = Request(scope, receive)
         handler = self._get_handler(request)
         response = await self._handle(handler, request)
         await response(scope, receive, send)
-
-
-class WebsocketBaseEndpoint(BaseEndpoint):
-
-    async def __call__(self,
-                       scope: AttrScope,
-                       receive: Receive,
-                       send: Send) -> None:
-        websocket = WebSocket(scope, receive, send)
-        handler = self._get_handler(websocket)
-        await self._handle(handler, websocket)
-
-
-# ---
 
 
 class HTTPFuncEndpoint(HTTPBaseEndpoint):
@@ -74,22 +61,39 @@ class HTTPClassEndpoint(HTTPBaseEndpoint):
         return getattr(self.handler, request.method.lower())
 
 
-class WebsocketFuncEndpoint(WebsocketBaseEndpoint):
+# ---
+
+
+class WebsocketFuncEndpoint(BaseEndpoint):
 
     def __init__(self, endpoint) -> None:
         super().__init__(endpoint, name=endpoint.__name__)
 
-    def _get_handler(self, request: Request) -> Callable:
+    async def __call__(self,
+                       scope: Scope,
+                       receive: Receive,
+                       send: Send) -> None:
+        handler = self._get_handler()
+        await self._handle(handler, WebSocket(scope, receive, send))
+
+    def _get_handler(self) -> Callable:
         return self.handler
 
 
-class WebsocketClassEndpoint(WebsocketBaseEndpoint):
+class WebsocketClassEndpoint(BaseEndpoint):
 
     def __init__(self, endpoint) -> None:
         super().__init__(endpoint, name=endpoint.__class__.__name__)
 
-    def _get_handler(self, request: Request) -> Callable:
-        return self.handler
+    async def __call__(self,
+                       scope: Scope,
+                       receive: Receive,
+                       send: Send) -> None:
+        handler = self._get_handler()
+        await self._handle(handler, scope, receive, send)
+
+    def _get_handler(self) -> Callable:
+        return self.handler.__call__
 
 
 # ---

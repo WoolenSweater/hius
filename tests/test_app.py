@@ -33,7 +33,7 @@ def sync_func_homepage(request):
     return PlainTextResponse('Hello, world! (SYNC)')
 
 
-@app.route('/async_func')
+@app.route('/async_func', name='custom_name_for_async')
 async def async_func_homepage(request):
     return PlainTextResponse('Hello, world! (ASYNC)')
 
@@ -90,6 +90,18 @@ def cli_exc():
 
 
 # ---
+
+
+def test_url_path_for_func_name():
+    assert app.url_path_for('sync_func_homepage') == '/sync_func'
+
+
+def test_url_path_for_custom_name():
+    assert app.url_path_for('custom_name_for_async') == '/async_func'
+
+
+def test_url_path_for_mounted():
+    assert app.url_path_for('user_page', username='alice') == '/users/alice'
 
 
 def test_sync_func_route(cli):

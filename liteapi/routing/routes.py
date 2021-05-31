@@ -12,9 +12,8 @@ from typing import (
     Set,
     Any
 )
-from starlette.types import ASGIApp
-from liteapi.types import AttrScope
-from liteapi.routing.utils import Match
+from starlette.types import Scope, ASGIApp
+from liteapi.routing.utils import Match, URLPath
 from liteapi.routing.parser import parse_path
 from liteapi.routing.endpoint import (
     BaseEndpoint,
@@ -24,7 +23,8 @@ from liteapi.routing.endpoint import (
 from liteapi.routing.exceptions import (
     MountError,
     RoutedPathError,
-    RoutedMethodsError
+    RoutedMethodsError,
+    NoMatchFound
 )
 import liteapi.routing as router
 
@@ -43,8 +43,11 @@ class BaseRoute:
         self.endpoint = self._prepare_endpoint(endpoint)
         self.name = self._prepare_name(name)
 
-    def match(self, scope: AttrScope) -> None:
-        raise NotImplementedError
+    def match(self, scope: Scope) -> None:
+        raise NotImplementedError  # pragma: no cover
+
+    def url_path_for(self, name: str) -> None:
+        raise NotImplementedError  # pragma: no cover
 
     def _prepare_endpoint(self, endpoint: Callable) -> Type[BaseEndpoint]:
         if isinstance(self, HTTPRoute):
@@ -110,11 +113,18 @@ class Mount:
     def _prepare_name(self, name: Optional[str]) -> str:
         return name or self.app.__class__.__name__
 
-    def _trim_path(self, scope: AttrScope) -> str:
-        return scope.ctx['path'][len(self.path):]
+    def _trim_path(self, scope: Scope) -> str:
+        return scope['ctx_path'][len(self.path):]
 
-    def match(self, scope: AttrScope) -> RouteMatch:
-        scope.ctx['path'] = self._trim_path(scope)
+    def url_path_for(self, name: str) -> URLPath:
+        if hasattr(self.app, 'url_path_for'):
+            return self.app.url_path_for(name).appendleft(self.path)
+        elif self.name == name:
+            return URLPath(path=self.path)
+        raise NoMatchFound
+
+    def match(self, scope: Scope) -> RouteMatch:
+        scope['ctx_path'] = self._trim_path(scope)
         return Match.FULL, self.app
 
 
@@ -133,10 +143,15 @@ class PlainHTTPRoute(BaseRoute):
         super().__init__(path, endpoint, name)
         self.methods = self._prepare_methods(methods)
 
-    def match(self, scope: AttrScope) -> RouteMatch:
+    def match(self, scope: Scope) -> RouteMatch:
         if scope['method'] in self.methods:
             return Match.FULL, self.endpoint
         return Match.PARTIAL, None
+
+    def url_path_for(self, name: str) -> URLPath:
+        if self.name == name:
+            return URLPath(path=self.path, protocol='http')
+        raise NoMatchFound
 
 
 class PlainWebsocketRoute(BaseRoute):
@@ -147,8 +162,13 @@ class PlainWebsocketRoute(BaseRoute):
                  name: str = None) -> None:
         super().__init__(path, endpoint, name)
 
-    def match(self, scope: AttrScope) -> RouteMatch:
+    def match(self, scope: Scope) -> RouteMatch:
         return Match.FULL, self.endpoint
+
+    def url_path_for(self, name: str) -> URLPath:
+        if self.name == name:
+            return URLPath(path=self.path, protocol='websocket')
+        raise NoMatchFound
 
 
 # ---
@@ -168,8 +188,8 @@ class DynamicHTTPRoute(DynamicBaseRoute):
         super().__init__(path, endpoint, pattern, converters, name)
         self.methods = self._prepare_methods(methods)
 
-    def match(self, scope: AttrScope) -> Optional[RouteMatch]:
-        match = self.pattern.match(scope.ctx['path'])
+    def match(self, scope: Scope) -> Optional[RouteMatch]:
+        match = self.pattern.match(scope['ctx_path'])
         if match is None:
             return
 
@@ -177,6 +197,11 @@ class DynamicHTTPRoute(DynamicBaseRoute):
             scope['path_params'] = self._convert_params(match)
             return Match.FULL, self.endpoint
         return Match.PARTIAL, None
+
+    def url_path_for(self, name: str) -> URLPath:
+        if self.name == name:
+            return URLPath(path=self.path, protocol='http')
+        raise NoMatchFound
 
 
 class DynamicWebsocketRoute(DynamicBaseRoute):
@@ -189,13 +214,18 @@ class DynamicWebsocketRoute(DynamicBaseRoute):
                  name: str = None) -> None:
         super().__init__(path, endpoint, pattern, converters, name)
 
-    def match(self, scope: AttrScope) -> Optional[RouteMatch]:
-        match = self.pattern.match(scope.ctx['path'])
+    def match(self, scope: Scope) -> Optional[RouteMatch]:
+        match = self.pattern.match(scope['ctx_path'])
         if match is None:
             return
 
         scope['path_params'] = self._convert_params(match)
         return Match.FULL, self.endpoint
+
+    def url_path_for(self, name: str) -> URLPath:
+        if self.name == name:
+            return URLPath(path=self.path, protocol='websocket')
+        raise NoMatchFound
 
 
 # ---
@@ -211,7 +241,7 @@ WebsocketRoute = (PlainWebsocketRoute, DynamicWebsocketRoute)
 # ---
 
 
-def __prepare_path(path: str) -> str:
+def __check_and_strip_path(path: str) -> str:
     if not path.startswith('/'):
         raise RoutedPathError('routed path must start with "/"')
     return path.rstrip()
@@ -221,7 +251,7 @@ def route(path: str,
           endpoint: Callable,
           methods: Sequence[str] = None,
           name: str = None) -> Union[HTTPRoute]:
-    pattern, converters = parse_path(__prepare_path(path))
+    path, pattern, converters = parse_path(__check_and_strip_path(path))
 
     if not converters:
         return PlainHTTPRoute(path, endpoint, methods, name)
@@ -238,7 +268,7 @@ def mount(path: str,
 def websocket(path: str,
               endpoint: Callable,
               name: str = None) -> Union[WebsocketRoute]:
-    pattern, converters = parse_path(__prepare_path(path))
+    path, pattern, converters = parse_path(__check_and_strip_path(path))
 
     if not converters:
         return PlainWebsocketRoute(path, endpoint, name)

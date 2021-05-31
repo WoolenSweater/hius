@@ -1,11 +1,8 @@
 from typing import (
-    MutableMapping,
     Callable,
     Union,
     Type,
-    Dict,
-    Any
+    Dict
 )
 
-AttrScope = MutableMapping[str, Any]
 ExceptionHandlers = Dict[Union[int, Type[Exception]], Callable]

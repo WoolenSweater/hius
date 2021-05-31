@@ -17,14 +17,15 @@ PARAM_COVERTERS = {
 
 def _unpack(match: re.Match) -> Tuple[str, str, str, str]:
     head, name, type, tail = match.groups(default='str')
-    return re.escape(head), name, type.lstrip(':'), re.escape(tail)
+    return head, name, type.lstrip(':'), tail
 
 
 def _get_converter(param_type: str) -> Converter:
     return PARAM_COVERTERS.get(param_type, Converter(param_type))
 
 
-def parse_path(path: str) -> Tuple[Pattern, Dict[str, Callable]]:
+def parse_path(path: str) -> Tuple[str, Pattern, Dict[str, Callable]]:
+    path_segments = []
     regex_segments = ['^']
     param_convertors = {}
     dup_params = set()
@@ -33,14 +34,17 @@ def parse_path(path: str) -> Tuple[Pattern, Dict[str, Callable]]:
         match = PARAM_REGEX.match(segment)
         if not match:
             regex_segments.append(re.escape(segment))
+            path_segments.append(segment)
             continue
 
         segment_head, param_name, param_type, segment_tail = _unpack(match)
         convertor = _get_converter(param_type)
 
-        regex_segments.append(f'{segment_head}'
+        regex_segments.append(f'{re.escape(segment_head)}'
                               f'(?P<{param_name}>{convertor.regex})'
-                              f'{segment_tail}')
+                              f'{re.escape(segment_tail)}')
+
+        path_segments.append(f'{segment_head}{{{param_name}}}{segment_tail}')
 
         if param_name in param_convertors:
             dup_params.add(param_name)
@@ -49,4 +53,6 @@ def parse_path(path: str) -> Tuple[Pattern, Dict[str, Callable]]:
     if dup_params:
         raise ValueError(f'duplicated params at path {path}: {dup_params}')
 
-    return re.compile('/'.join(regex_segments) + '$'), param_convertors
+    path = '/' + '/'.join(path_segments)
+    pattern = re.compile('/'.join(regex_segments) + '$')
+    return path, pattern, param_convertors

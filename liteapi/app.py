@@ -11,8 +11,8 @@ from starlette.exceptions import ExceptionMiddleware
 from starlette.types import Scope, Receive, Send, ASGIApp
 from liteapi.types import ExceptionHandlers
 from liteapi.routing.routes import BaseRoute
+from liteapi.routing.utils import URLPath
 from liteapi.routing import Router
-from liteapi.utils import AttrScope
 
 
 class LiteAPI:
@@ -41,8 +41,12 @@ class LiteAPI:
                        scope: Scope,
                        receive: Receive,
                        send: Send) -> None:
-        scope = AttrScope(self, scope)
+        self._set_scope_self(scope)
         await self.middleware_stack(scope, receive, send)
+
+    def _set_scope_self(self, scope: Scope) -> None:
+        if 'app' not in scope:
+            scope['app'] = self
 
     def build_middleware_stack(self) -> ASGIApp:
         debug = self.debug
@@ -65,6 +69,9 @@ class LiteAPI:
         for cls, options in reversed(middleware):
             app = cls(app=app, **options)
         return app
+
+    def url_path_for(self, name: str, **path_params: str) -> URLPath:
+        return self.router.url_path_for(name, **path_params)
 
     # ---
 

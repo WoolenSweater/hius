@@ -1,10 +1,18 @@
 class MountError(Exception):
-    '''Router Error'''
+    '''Routes Error'''
 
 
 class RoutedPathError(Exception):
-    '''Router Error'''
+    '''Routes Error'''
 
 
 class RoutedMethodsError(Exception):
+    '''Routes Error'''
+
+
+class NoMatchFound(Exception):
     '''Router Error'''
+
+
+class ProtocolError(Exception):
+    '''URLPath Error'''
