@@ -28,6 +28,21 @@ async def http_exception(request, exc):
     return JSONResponse({'detail': exc.detail}, status_code=exc.status_code)
 
 
+@app.on_startup()
+async def startup(app):
+    pass
+
+
+@app.on_shutdown()
+def shutdown(app):
+    pass
+
+
+@app.on_lifespan()
+async def lifespan(app):
+    yield
+
+
 @app.route('/sync_func')
 def sync_func_homepage(request):
     return PlainTextResponse('Hello, world! (SYNC)')

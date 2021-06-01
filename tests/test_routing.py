@@ -5,7 +5,11 @@ from starlette.exceptions import HTTPException
 from starlette.websockets import WebSocket, WebSocketDisconnect
 from starlette.responses import JSONResponse, PlainTextResponse, Response
 from liteapi.routing import Router, route, mount, websocket
-from liteapi.routing.exceptions import NoMatchFound
+from liteapi.routing.exceptions import (
+    NoMatchFound,
+    RoutedMethodsError,
+    RoutedPathError
+)
 from liteapi.app import LiteAPI
 
 
@@ -27,7 +31,7 @@ def user_me(request):
     return Response(content, media_type='text/plain')
 
 
-app = Router(
+router = Router(
     [
         route('/', endpoint=homepage, methods=['GET']),
         mount(
@@ -43,61 +47,61 @@ app = Router(
 )
 
 
-@app.route('/func')
+@router.route('/func')
 def func_homepage(request):
     return Response('Hello, world!', media_type='text/plain')
 
 
-@app.route('/func', methods=['POST'])
+@router.route('/func', methods=['POST'])
 def contact(request):
     return Response('Hello, POST!', media_type='text/plain')
 
 
-@app.route('/int/{param:int}', name='int-convertor')
+@router.route('/int/{param:int}', name='int-convertor')
 def int_convertor(request):
     number = request.path_params['param']
     return JSONResponse({'int': number})
 
 
-@app.route('/float/{param:float}', name='float-convertor')
+@router.route('/float/{param:float}', name='float-convertor')
 def float_convertor(request):
     num = request.path_params['param']
     return JSONResponse({'float': num})
 
 
-@app.route('/path/{param:path}', name='path-convertor')
+@router.route('/path/{param:path}', name='path-convertor')
 def path_convertor(request):
     path = request.path_params['param']
     return JSONResponse({'path': path})
 
 
-@app.route('/uuid/{param:uuid}', name='uuid-convertor')
+@router.route('/uuid/{param:uuid}', name='uuid-convertor')
 def uuid_converter(request):
     uuid_param = request.path_params['param']
     return JSONResponse({'uuid': str(uuid_param)})
 
 
-@app.route('/path-with-parentheses({param:int})', name='path-with-parentheses')
+@router.route('/path-with-parentheses({param:int})', name='path-with-parentheses')
 def path_with_parentheses(request):
     number = request.path_params['param']
     return JSONResponse({'int': number})
 
 
-@app.websocket('/ws')
+@router.websocket('/ws')
 async def websocket_endpoint(session):
     await session.accept()
     await session.send_text('Hello, world!')
     await session.close()
 
 
-@app.websocket('/ws/{room}')
+@router.websocket('/ws/{room}')
 async def websocket_params(session):
     await session.accept()
     await session.send_text(f'Hello, {session.path_params["room"]}!')
     await session.close()
 
 
-cli = TestClient(app)
+cli = TestClient(router)
 
 
 # ---
@@ -196,16 +200,82 @@ def test_route_converters(url, json, name, param):
     response = cli.get(url)
     assert response.status_code == 200
     assert response.json() == json
-    assert app.url_path_for(name, param=param) == url
+    assert router.url_path_for(name, param=param) == url
+
+
+def test_router_add_route():
+    response = cli.get('/func')
+    assert response.status_code == 200
+    assert response.text == 'Hello, world!'
+
+
+def test_router_duplicate_path():
+    response = cli.post('/func')
+    assert response.status_code == 200
+    assert response.text == 'Hello, POST!'
+
+
+def test_router_add_websocket_route():
+    with cli.websocket_connect('/ws') as session:
+        text = session.receive_text()
+        assert text == 'Hello, world!'
+
+    with cli.websocket_connect('/ws/test') as session:
+        text = session.receive_text()
+        assert text == 'Hello, test!'
+
+
+# ---
+
+
+def http_endpoint(request):
+    url = request.url_for('http_endpoint')
+    return Response(f'URL: {url}', media_type='text/plain')
+
+
+class WebSocketEndpoint:
+    async def __call__(self, scope, receive, send):
+        ws = WebSocket(scope=scope, receive=receive, send=send)
+        await ws.accept()
+        await ws.send_json({'URL': str(ws.url_for('ws_endpoint'))})
+        await ws.close()
+
+
+mixed_protocol_router = Router(
+    routes=[
+        route('/', endpoint=http_endpoint),
+        websocket('/', endpoint=WebSocketEndpoint(), name='ws_endpoint'),
+    ]
+)
+
+
+def test_router_protocol_switch():
+    client = TestClient(mixed_protocol_router)
+
+    response = client.get('/')
+    assert response.status_code == 200
+    assert response.text == 'URL: http://testserver/'
+
+    with client.websocket_connect('/') as session:
+        assert session.receive_json() == {'URL': 'ws://testserver/'}
+
+    with pytest.raises(WebSocketDisconnect):
+        client.websocket_connect('/404')
+
+
+ok = PlainTextResponse('OK')
+
+
+# ---
 
 
 def test_url_path_for():
-    assert app.url_path_for('homepage') == '/'
-    assert app.url_path_for('user', username='starlette') == '/users/starlette'
-    assert app.url_path_for('websocket_endpoint') == '/ws'
+    assert router.url_path_for('homepage') == '/'
+    assert router.url_path_for('user', username='starlette') == '/users/starlette'
+    assert router.url_path_for('websocket_endpoint') == '/ws'
 
     with pytest.raises(NoMatchFound):
-        assert app.url_path_for('broken')
+        assert router.url_path_for('broken')
 
 
 _params_url_for = [
@@ -248,71 +318,8 @@ _ids_url_for = [
 @pytest.mark.parametrize('name, params, base, result',
                          _params_url_for, ids=_ids_url_for)
 def test_url_for(name, params, base, result):
-    url = app.url_path_for(name, **params).make_absolute_url(base_url=base)
+    url = router.url_path_for(name, **params).make_absolute_url(base_url=base)
     assert url == result
-
-
-def test_router_add_route():
-    response = cli.get('/func')
-    assert response.status_code == 200
-    assert response.text == 'Hello, world!'
-
-
-def test_router_duplicate_path():
-    response = cli.post('/func')
-    assert response.status_code == 200
-    assert response.text == 'Hello, POST!'
-
-
-def test_router_add_websocket_route():
-    with cli.websocket_connect('/ws') as session:
-        text = session.receive_text()
-        assert text == 'Hello, world!'
-
-    with cli.websocket_connect('/ws/test') as session:
-        text = session.receive_text()
-        assert text == 'Hello, test!'
-
-
-# ---
-
-
-def http_endpoint(request):
-    url = request.url_for('http_endpoint')
-    return Response(f'URL: {url}', media_type='text/plain')
-
-
-class WebSocketEndpoint:
-    async def __call__(self, scope, receive, send):
-        ws = WebSocket(scope=scope, receive=receive, send=send)
-        await ws.accept()
-        await ws.send_json({'URL': str(ws.url_for('ws_endpoint'))})
-        await ws.close()
-
-
-mixed_protocol_app = Router(
-    routes=[
-        route('/', endpoint=http_endpoint),
-        websocket('/', endpoint=WebSocketEndpoint(), name='ws_endpoint'),
-    ]
-)
-
-
-def test_protocol_switch():
-    client = TestClient(mixed_protocol_app)
-
-    response = client.get('/')
-    assert response.status_code == 200
-    assert response.text == 'URL: http://testserver/'
-
-    with client.websocket_connect('/') as session:
-        assert session.receive_json() == {'URL': 'ws://testserver/'}
-
-    with pytest.raises(WebSocketDisconnect):
-        client.websocket_connect('/404')
-
-
-ok = PlainTextResponse('OK')
 
 
 def test_mount_urls():
@@ -414,29 +421,26 @@ def test_url_for_with_double_mount():
 # ---
 
 
-# def test_lifespan_async():
-#     pass
-
-
-# def test_lifespan_sync():
-#     pass
-
-
-# def test_raise_on_startup():
-#     pass
-
-
-# def test_raise_on_shutdown():
-#     pass
-
-
-# def test_partial_async_endpoint():
-#     pass
-
-
 def test_duplicated_param_names():
     with pytest.raises(ValueError):
         route('/{id}/{id}', user)
 
     with pytest.raises(ValueError):
         route('/{id}/{name}/{id}/{name}', user)
+
+
+# ---
+
+
+def test_router_wrong_type_methods():
+    with pytest.raises(RoutedMethodsError):
+        @router.route('/typeerror', methods='get, post')
+        def typerror(request):
+            pass
+
+
+def test_router_route_without_slash():
+    with pytest.raises(RoutedPathError):
+        @router.route('badroute')
+        def badroute(request):
+            pass

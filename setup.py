@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='liteapi',
-    version='0.0.3',
+    version='0.0.4',
     packages=find_packages(),
     description='Lightweight ASGI web framework',
     long_description=open('README.md', 'r').read(),

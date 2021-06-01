@@ -18,13 +18,12 @@ class BaseEndpoint:
                        scope: Scope,
                        receive: Receive,
                        send: Send) -> None:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     async def _handle(self, handler: Callable, *args) -> Optional[Callable]:
         if iscoroutinefunction(handler):
             return await handler(*args)
         else:
-
             return await run_in_threadpool(handler, *args)
 
 

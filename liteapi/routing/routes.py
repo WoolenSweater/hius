@@ -62,10 +62,11 @@ class BaseRoute:
         if methods is None:
             return {'GET', 'HEAD'}
 
-        try:
+        if isinstance(methods, (list, tuple, set)):
             return {str(method).upper() for method in methods}
-        except TypeError:
-            raise RoutedMethodsError('methods must be an iterable')
+
+        raise RoutedMethodsError('"methods" must be list, '
+                                 'tuple, set or None type')
 
 
 class DynamicBaseRoute(BaseRoute):

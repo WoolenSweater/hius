@@ -9,7 +9,8 @@ from typing import (
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.exceptions import ExceptionMiddleware
 from starlette.types import Scope, Receive, Send, ASGIApp
-from liteapi.types import ExceptionHandlers
+from liteapi.types import ExceptionHandlers, LifespanGenerator
+from liteapi.routing.lifespan import Lifespan
 from liteapi.routing.routes import BaseRoute
 from liteapi.routing.utils import URLPath
 from liteapi.routing import Router
@@ -18,24 +19,20 @@ from liteapi.routing import Router
 class LiteAPI:
     def __init__(self,
                  debug: bool = False,
-                 router: Router = None,
                  routes: Sequence[BaseRoute] = None,
-                 exception_handlers: ExceptionHandlers = None) -> None:
+                 exception_handlers: ExceptionHandlers = None,
+                 on_startup: Sequence[Callable] = None,
+                 on_shutdown: Sequence[Callable] = None,
+                 on_lifespan: Sequence[LifespanGenerator] = None) -> None:
         self.debug = debug
-        self.router = self.__prepare_router(router, routes)
+
+        lifespan = Lifespan(on_startup, on_shutdown, on_lifespan)
+        self.router = Router(routes=routes, lifespan=lifespan)
 
         self.exception_handlers = exception_handlers or {}
 
         self.middleware = []
         self.middleware_stack = self.build_middleware_stack()
-
-    def __prepare_router(self,
-                         router: Router,
-                         routes: Sequence[BaseRoute]) -> Router:
-        if all((router, routes)):
-            raise RuntimeError('either "router", or '
-                               '"routes" must be specified')
-        return router or Router(routes=routes)
 
     async def __call__(self,
                        scope: Scope,
@@ -105,17 +102,15 @@ class LiteAPI:
               path: str,
               methods: Sequence[str] = None,
               name: str = None) -> Callable:
-        def decorator(endpoint: Callable) -> Callable:
+        def decorator(endpoint: Callable) -> None:
             self.router._route(path, endpoint, methods, name)
-            return endpoint
         return decorator
 
     def websocket(self,
                   path: str,
                   name: str = None) -> Callable:
-        def decorator(endpoint: Callable) -> Callable:
+        def decorator(endpoint: Callable) -> None:
             self.router._websocket(path, endpoint, name)
-            return endpoint
         return decorator
 
     def mount(self,
@@ -126,7 +121,23 @@ class LiteAPI:
 
     def exception_handler(self,
                           exc: Union[int, Type[Exception]]) -> Callable:
-        def decorator(func: Callable) -> Callable:
+        def decorator(func: Callable) -> None:
             self.add_exception_handler(exc, func)
-            return func
+        return decorator
+
+    # ---
+
+    def on_startup(self) -> Callable:
+        def decorator(func: Callable) -> None:
+            self.router.lifespan.on_startup.append(func)
+        return decorator
+
+    def on_shutdown(self) -> Callable:
+        def decorator(func: Callable) -> None:
+            self.router.lifespan.on_shutdown.append(func)
+        return decorator
+
+    def on_lifespan(self) -> Callable:
+        def decorator(func: Callable) -> None:
+            self.router.lifespan.on_lifespan.append(func)
         return decorator

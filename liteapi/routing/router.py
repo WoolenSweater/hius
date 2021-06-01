@@ -2,6 +2,7 @@ from itertools import chain
 from collections import defaultdict
 from typing import (
     DefaultDict,
+    Awaitable,
     Callable,
     Optional,
     Sequence,
@@ -27,19 +28,27 @@ from liteapi.routing.routes import (
     websocket,
 )
 
+Lifespan = Callable[[Scope, Receive, Send], Awaitable]
 Plain = DefaultDict[str, List[BaseRoute]]
 Dynamic = List[BaseRoute]
 
 
 class Router:
 
-    __slots__ = '_mounted', '_http', '_webs'
+    __slots__ = '_mounted', '_http', '_webs', 'lifespan',
 
-    def __init__(self, routes: Sequence[BaseRoute] = None) -> None:
+    def __init__(self,
+                 routes: Sequence[BaseRoute] = None,
+                 lifespan: Lifespan = None) -> None:
         self._mounted = []
 
         self._http = {'plain': defaultdict(list), 'dynamic': []}
         self._webs = {'plain': defaultdict(list), 'dynamic': []}
+
+        async def default_lifespan(*args):
+            pass  # pragma: no cover
+
+        self.lifespan = lifespan or default_lifespan
 
         if routes is not None:
             for route in routes:
@@ -49,14 +58,12 @@ class Router:
                        scope: Scope,
                        receive: Receive,
                        send: Send) -> None:
-        self._set_scope_vars(scope)
-
         if scope['type'] == 'http':
             await self.match_http(scope, receive, send)
         elif scope['type'] == 'websocket':
             await self.match_websocket(scope, receive, send)
         elif scope['type'] == 'lifespan':
-            pass  # to do
+            await self.lifespan(scope, receive, send)
 
     def _set_scope_vars(self, scope: Scope) -> None:
         if 'router' not in scope:
@@ -69,6 +76,7 @@ class Router:
                          scope: Scope,
                          receive: Receive,
                          send: Send) -> None:
+        self._set_scope_vars(scope)
         match, endpoint = self._match(scope, **self._http)
 
         if match == Match.FULL:
@@ -82,6 +90,7 @@ class Router:
                               scope: Scope,
                               receive: Receive,
                               send: Send) -> None:
+        self._set_scope_vars(scope)
         match, endpoint = self._match(scope, **self._webs)
 
         if match == Match.FULL:
