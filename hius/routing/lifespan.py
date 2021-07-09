@@ -9,7 +9,7 @@ from typing import (
 )
 from starlette.concurrency import run_in_threadpool
 from starlette.types import Scope, Receive, Send, ASGIApp
-from liteapi.types import LifespanGenerator
+from hius.types import LifespanGenerator
 
 
 class Lifespan:

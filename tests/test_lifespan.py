@@ -1,8 +1,8 @@
 import pytest
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient as BaseTestClient
-from liteapi.routing import Router as BaseRouter, route
-from liteapi.routing.lifespan import Lifespan
+from hius.routing import Router as BaseRouter, route
+from hius.routing.lifespan import Lifespan
 
 
 class TestClient(BaseTestClient):

@@ -1,7 +1,7 @@
 import re
 from uuid import UUID
 from typing import Tuple, Dict, Pattern, Callable
-from liteapi.routing.utils import Converter
+from hius.routing.utils import Converter
 
 
 PARAM_REGEX = re.compile(r'(.*){([a-zA-Z_][\w]*)(:.+)?}(.*)')

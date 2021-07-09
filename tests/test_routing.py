@@ -2,15 +2,15 @@ from uuid import UUID
 import pytest
 from starlette.testclient import TestClient
 from starlette.exceptions import HTTPException
-from starlette.websockets import WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketDisconnect
 from starlette.responses import JSONResponse, PlainTextResponse, Response
-from liteapi.routing import Router, route, mount, websocket
-from liteapi.routing.exceptions import (
+from hius.routing import Router, route, mount, websocket
+from hius.routing.exceptions import (
     NoMatchFound,
     RoutedMethodsError,
     RoutedPathError
 )
-from liteapi.app import LiteAPI
+from hius.app import Hius
 
 
 def homepage(request):
@@ -234,11 +234,13 @@ def http_endpoint(request):
 
 
 class WebSocketEndpoint:
-    async def __call__(self, scope, receive, send):
-        ws = WebSocket(scope=scope, receive=receive, send=send)
-        await ws.accept()
-        await ws.send_json({'URL': str(ws.url_for('ws_endpoint'))})
-        await ws.close()
+    async def __call__(self):
+        await self.websocket.accept()
+        await self.websocket.send_json(self._get_json())
+        await self.websocket.close()
+
+    def _get_json(self):
+        return {'URL': str(self.websocket.url_for('ws_endpoint'))}
 
 
 mixed_protocol_router = Router(
@@ -381,7 +383,7 @@ echo_url_routes = [
 
 
 def test_url_for_with_root_path():
-    app = LiteAPI(routes=echo_url_routes)
+    app = Hius(routes=echo_url_routes)
     client = TestClient(app,
                         base_url='https://www.example.org/',
                         root_path='/sub_path')
@@ -414,7 +416,7 @@ double_mount_routes = [
 
 
 def test_url_for_with_double_mount():
-    app = LiteAPI(routes=double_mount_routes)
+    app = Hius(routes=double_mount_routes)
     assert app.url_path_for('static') == '/mount/static'
 
 

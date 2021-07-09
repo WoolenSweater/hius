@@ -13,20 +13,20 @@ from typing import (
     Any
 )
 from starlette.types import Scope, ASGIApp
-from liteapi.routing.utils import Match, URLPath
-from liteapi.routing.parser import parse_path
-from liteapi.routing.endpoint import (
+from hius.routing.utils import Match, URLPath
+from hius.routing.parser import parse_path
+from hius.routing.endpoint import (
     BaseEndpoint,
     get_http_endpoint,
     get_websocket_endpoint
 )
-from liteapi.routing.exceptions import (
+from hius.routing.exceptions import (
     MountError,
     RoutedPathError,
     RoutedMethodsError,
     NoMatchFound
 )
-import liteapi.routing as router
+import hius.routing as router
 
 RouteMatch = Tuple[Match, Optional[Callable]]
 

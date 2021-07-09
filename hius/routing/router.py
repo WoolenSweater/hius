@@ -13,9 +13,9 @@ from starlette.datastructures import URLPath
 from starlette.exceptions import HTTPException
 from starlette.websockets import WebSocketDisconnect
 from starlette.types import Scope, Receive, Send, ASGIApp
-from liteapi.routing.utils import Match
-from liteapi.routing.exceptions import NoMatchFound
-from liteapi.routing.routes import (
+from hius.routing.utils import Match
+from hius.routing.exceptions import NoMatchFound
+from hius.routing.routes import (
     BaseRoute,
     PlainRoute,
     DynamicRoute,

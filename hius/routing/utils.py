@@ -7,7 +7,7 @@ from typing import (
     Any
 )
 from starlette.datastructures import URL
-from liteapi.routing.exceptions import ProtocolError
+from hius.routing.exceptions import ProtocolError
 
 PROTOCOL_MAPPING = {
     'http': {True: 'https', False: 'http'},

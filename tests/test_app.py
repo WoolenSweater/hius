@@ -4,12 +4,12 @@ from starlette.testclient import TestClient
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from liteapi import LiteAPI
-from liteapi.routing import Router
-from liteapi.handlers import StaticFiles
+from hius import Hius
+from hius.routing import Router
+from hius.handlers import StaticFiles
 
 
-app = LiteAPI()
+app = Hius()
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=['testserver'])
 
 
@@ -55,10 +55,10 @@ async def async_func_homepage(request):
 
 @app.route('/class', methods=['GET', 'POST'])
 class Homepage:
-    def get(self, request):
+    def get(self):
         return PlainTextResponse('Hello, world! (SYNC, GET)')
 
-    async def post(self, request):
+    async def post(self):
         return PlainTextResponse('Hello, world! (ASYNC, POST)')
 
 
@@ -71,8 +71,7 @@ def all_users_page(request):
 
 
 @users.route('/{username}')
-def user_page(request):
-    username = request.path_params['username']
+def user_page(request, username: str):
     return PlainTextResponse(f'Hello, {username}!')
 
 
@@ -85,10 +84,10 @@ def runtime_error(request):
 
 
 @app.websocket('/ws')
-async def websocket_endpoint(session):
-    await session.accept()
-    await session.send_text('Hello, world!')
-    await session.close()
+async def websocket_endpoint(ws, name: str = None):
+    await ws.accept()
+    await ws.send_text(f'Hello, {name}!')
+    await ws.close()
 
 
 # ---
@@ -161,15 +160,14 @@ def test_mounted_route(cli):
 
 
 def test_mounted_route_path_params(cli):
-    response = cli.get('/users/liteapi')
+    response = cli.get('/users/hius')
     assert response.status_code == 200
-    assert response.text == 'Hello, liteapi!'
+    assert response.text == 'Hello, hius!'
 
 
 def test_websocket_route(cli):
-    with cli.websocket_connect('/ws') as session:
-        text = session.receive_text()
-        assert text == 'Hello, world!'
+    with cli.websocket_connect('/ws?name=Alice') as session:
+        assert session.receive_text() == "Hello, Alice!"
 
 
 # --
@@ -209,7 +207,7 @@ def test_middleware():
 
 
 def test_app_debug():
-    app = LiteAPI(debug=True)
+    app = Hius(debug=True)
 
     @app.route('/')
     async def homepage(request):
@@ -228,7 +226,7 @@ def test_app_mount(tmpdir):
     with open(path, 'w') as file:
         file.write('<file content>')
 
-    app = LiteAPI()
+    app = Hius()
     app.mount('/static', StaticFiles(directory=tmpdir))
 
     cli = TestClient(app)
@@ -243,7 +241,7 @@ def test_app_mount(tmpdir):
 
 
 def test_app_add_route():
-    app = LiteAPI()
+    app = Hius()
 
     async def homepage(request):
         return PlainTextResponse('Hello, World!')
@@ -258,7 +256,7 @@ def test_app_add_route():
 
 
 def test_app_add_websocket_route():
-    app = LiteAPI()
+    app = Hius()
 
     async def websocket_endpoint(session):
         await session.accept()

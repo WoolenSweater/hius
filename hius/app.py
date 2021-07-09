@@ -9,14 +9,14 @@ from typing import (
 from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.exceptions import ExceptionMiddleware
 from starlette.types import Scope, Receive, Send, ASGIApp
-from liteapi.types import ExceptionHandlers, LifespanGenerator
-from liteapi.routing.lifespan import Lifespan
-from liteapi.routing.routes import BaseRoute
-from liteapi.routing.utils import URLPath
-from liteapi.routing import Router
+from hius.types import ExceptionHandlers, LifespanGenerator
+from hius.routing.lifespan import Lifespan
+from hius.routing.routes import BaseRoute
+from hius.routing.utils import URLPath
+from hius.routing import Router
 
 
-class LiteAPI:
+class Hius:
     def __init__(self,
                  debug: bool = False,
                  routes: Sequence[BaseRoute] = None,
