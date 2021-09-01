@@ -109,7 +109,7 @@ cli = TestClient(router)
 
 _params_router_success = [
     ('get', '/', 'Hello, world'),
-    ('get', '/users/starlette', 'User starlette'),
+    ('get', '/users/hius', 'User hius'),
     ('get', '/users/me', 'User fixed me'),
     ('get', '/static/123', 'xxxxx'),
 ]
@@ -133,7 +133,7 @@ _params_router_error = [
     ('post', '/', 405, 'Method Not Allowed'),
     ('get', '/foo', 404, 'Not Found'),
     ('get', '/users', 404, 'Not Found'),
-    ('get', '/users/starlette/', 404, 'Not Found'),
+    ('get', '/users/hius/', 404, 'Not Found'),
 ]
 _ids_router_error = [
     '405-method-not-allowed',
@@ -273,7 +273,7 @@ ok = PlainTextResponse('OK')
 
 def test_url_path_for():
     assert router.url_path_for('homepage') == '/'
-    assert router.url_path_for('user', username='starlette') == '/users/starlette'
+    assert router.url_path_for('user', username='hius') == '/users/hius'
     assert router.url_path_for('websocket_endpoint') == '/ws'
 
     with pytest.raises(NoMatchFound):
@@ -295,15 +295,15 @@ _params_url_for = [
     ),
     (
         'user',
-        {'username': 'starlette'},
+        {'username': 'hius'},
         'https://example.org',
-        'https://example.org/users/starlette'
+        'https://example.org/users/hius'
     ),
     (
         'user',
-        {'username': 'starlette'},
+        {'username': 'hius'},
         'https://example.org/root_path/',
-        'https://example.org/root_path/users/starlette'
+        'https://example.org/root_path/users/hius'
     ),
     (
         'websocket_endpoint',

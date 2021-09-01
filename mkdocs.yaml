@@ -1,0 +1,50 @@
+site_name: Hius
+site_description: The little ASGI library.
+
+repo_url: https://github.com/WoolenSweater/hius
+repo_name: WoolenSweater/hius
+edit_uri: ''
+
+theme:
+  name: material
+  language: ru
+  features:
+    - navigation.instant
+    - navigation.top
+    - toc.integrate
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/lightbulb
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to light mode
+
+nav:
+  - Добро пожаловать (Welcome): 'index.md'
+  - Введение (Introduction): 'ru/introduction.md'
+  - Приложение (Application): 'ru/app.md'
+  - Роутинг (Routing): 'ru/routing.md'
+  - Обработчик (Endpoint): 'ru/endpoint.md'
+  - Запрос (Request): 'ru/request.md'
+  - Ответ (Response): 'ru/response.md'
+  - Миддлвары (Middleware): 'ru/middleware.md'
+  - Статические файлы (Static Files): 'ru/static.md'
+
+markdown_extensions:
+  - toc:
+      permalink: true
+      slugify: !!python/name:pymdownx.slugs.uslugify
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.tabbed
