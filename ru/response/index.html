@@ -12,7 +12,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.2.2, mkdocs-material-7.2.5">
+      <meta name="generator" content="mkdocs-1.2.3, mkdocs-material-7.3.6">
     
     
       
@@ -20,7 +20,7 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.be71726b.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.a57b2b03.min.css">
       
         
         <link rel="stylesheet" href="../../assets/stylesheets/palette.3f5d1f46.min.css">
@@ -76,7 +76,9 @@
       
     </div>
     
-      <header class="md-header" data-md-component="header">
+      
+
+<header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="Hius" class="md-header__button md-logo" aria-label="Hius" data-md-component="logo">
       
@@ -177,11 +179,14 @@
       </div>
     
   </nav>
+  
 </header>
     
     <div class="md-container" data-md-component="container">
       
       
+        
+          
         
       
       <main class="md-main" data-md-component="main">
@@ -330,9 +335,41 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Ответ (Response)
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         Ответ (Response)
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#http-ошибки" class="md-nav__link">
+    HTTP ошибки
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -386,6 +423,71 @@
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">hius.responses</span> <span class="kn">import</span> <span class="n">PlainTextResponse</span><span class="p">,</span> <span class="o">...</span>
 </code></pre></div>
 <p>Ознакомится с ними можно в <a href="https://www.starlette.io/responses/">документации родительской библиотеки</a>.</p>
+<h2 id="http-ошибки">HTTP ошибки<a class="headerlink" href="#http-ошибки" title="Permanent link">&para;</a></h2>
+<p>Если вам нужно вернуть клиенту определённый HTTP код с его стандартным описанием, вы можете импортировать вспомогательный класс и возбудить исключение в любом месте в процессе обработки запроса.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">hius.httperrors</span> <span class="kn">import</span> <span class="n">HTTPUnauthorized</span>
+<span class="kn">from</span> <span class="nn">hius.responses</span> <span class="kn">import</span> <span class="n">PlainTextResponse</span>
+
+
+<span class="k">def</span> <span class="nf">handler</span><span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">password</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">password</span> <span class="o">!=</span> <span class="s1">&#39;super_password&#39;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">HTTPUnauthorized</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">PlainTextResponse</span><span class="p">(</span><span class="s1">&#39;Allowed&#39;</span><span class="p">)</span>
+</code></pre></div>
+<p>Ниже приведен список существующих шаблонов ответов.</p>
+<ul>
+<li>200 - HTTPOk</li>
+<li>201 - HTTPCreated</li>
+<li>202 - HTTPAccepted</li>
+<li>203 - HTTPNonAuthoritativeInformation</li>
+<li>204 - HTTPNoContent</li>
+<li>205 - HTTPResetContent</li>
+<li>206 - HTTPPartialContent</li>
+<li>300 - HTTPMultipleChoices</li>
+<li>301 - HTTPExceptiondPermanently</li>
+<li>302 - HTTPFound</li>
+<li>303 - HTTPSeeOther</li>
+<li>304 - HTTPNotModified</li>
+<li>305 - HTTPUseProxy</li>
+<li>307 - HTTPTemporaryRedirect</li>
+<li>308 - HTTPPermanentRedirect</li>
+<li>400 - HTTPBadRequest</li>
+<li>401 - HTTPUnauthorized</li>
+<li>402 - HTTPPaymentRequired</li>
+<li>403 - HTTPForbidden</li>
+<li>404 - HTTPNotFound</li>
+<li>405 - HTTPMethodNotAllowed</li>
+<li>406 - HTTPNotAcceptable</li>
+<li>407 - HTTPProxyAuthenticationRequired</li>
+<li>408 - HTTPRequestTimeout</li>
+<li>409 - HTTPConflict</li>
+<li>410 - HTTPGone</li>
+<li>411 - HTTPLengthRequired</li>
+<li>412 - HTTPPreconditionFailed</li>
+<li>413 - HTTPRequestEntityTooLarge</li>
+<li>414 - HTTPRequestURITooLong</li>
+<li>415 - HTTPUnsupportedMediaType</li>
+<li>416 - HTTPRequestRangeNotSatisfiable</li>
+<li>417 - HTTPExpectationFailed</li>
+<li>421 - HTTPMisdirectedRequest</li>
+<li>422 - HTTPUnprocessableEntity</li>
+<li>424 - HTTPFailedDependency</li>
+<li>426 - HTTPUpgradeRequired</li>
+<li>428 - HTTPPreconditionRequired</li>
+<li>429 - HTTPTooManyRequests</li>
+<li>431 - HTTPRequestHeaderFieldsTooLarge</li>
+<li>451 - HTTPUnavailableForLegalReasons</li>
+<li>500 - HTTPInternalServerError</li>
+<li>501 - HTTPNotImplemented</li>
+<li>502 - HTTPBadGateway</li>
+<li>503 - HTTPServiceUnavailable</li>
+<li>504 - HTTPGatewayTimeout</li>
+<li>505 - HTTPVersionNotSupported</li>
+<li>506 - HTTPVariantAlsoNegotiates</li>
+<li>507 - HTTPInsufficientStorage</li>
+<li>510 - HTTPNotExtended</li>
+<li>511 - HTTPNetworkAuthenticationRequired</li>
+</ul>
                 
               
               
@@ -446,10 +548,12 @@
     <div class="md-footer-meta__inner md-grid">
       <div class="md-footer-copyright">
         
-        Made with
-        <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-          Material for MkDocs
-        </a>
+        
+          Made with
+          <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+            Material for MkDocs
+          </a>
+        
         
       </div>
       
@@ -461,10 +565,10 @@
     <div class="md-dialog" data-md-component="dialog">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.top", "toc.integrate"], "translations": {"clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "search.config.lang": "ru", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "\u041f\u043e\u0438\u0441\u043a", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e # \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "search": "../../assets/javascripts/workers/search.409db549.min.js", "version": null}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.instant", "navigation.top", "toc.integrate"], "translations": {"clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "search.config.lang": "ru", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "\u041f\u043e\u0438\u0441\u043a", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e # \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "search": "../../assets/javascripts/workers/search.fcfe8b6d.min.js", "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.56a63758.min.js"></script>
+      <script src="../../assets/javascripts/bundle.b1047164.min.js"></script>
       
     
   </body>
