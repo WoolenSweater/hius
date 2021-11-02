@@ -15,9 +15,9 @@ from inspect import (
     isclass,
     _empty as inspect_empty
 )
+from hius.requests import Request
+from hius.routing.exceptions import HTTPValidationError
 from starlette.websockets import WebSocket, WebSocketDisconnect
-from starlette.requests import Request
-from starlette.responses import JSONResponse
 from starlette.types import Scope, Receive, Send
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, create_model, ValidationError
@@ -31,11 +31,11 @@ ModelFields = Dict[str, Tuple[Type, Any]]
 
 class BaseEndpoint:
 
-    __slots__ = 'endpoint', 'name'
+    __slots__ = 'endpoint', 'name',
 
     def __init__(self, endpoint: Callable, *, name: str) -> None:
-        self.endpoint = endpoint
-        self.name = name
+        self._endpoint = endpoint
+        self._name = name
 
     async def __call__(self,
                        scope: Scope,
@@ -53,9 +53,9 @@ class BaseEndpoint:
             return await run_in_threadpool(method, *args, **kwargs)
 
     def __get_model_name(self, func: Callable) -> str:
-        if self.name == func.__name__:
-            return f'{self.name}_model'
-        return f'{self.name}_{func.__name__}_model'
+        if self._name == func.__name__:
+            return f'{self._name}_model'
+        return f'{self._name}_{func.__name__}_model'
 
     def __get_model_fields(self, func: Callable) -> ModelFields:
         model_fields = {}
@@ -126,7 +126,7 @@ class HTTPBaseEndpoint(BaseEndpoint):
             response = await self._handle(self._get_method(request),
                                           *self._get_params(request))
         except ValidationError as exc:
-            response = JSONResponse(exc.errors(), status_code=400)
+            raise HTTPValidationError(exc.raw_errors, exc.model)
 
         await response(scope, receive, send)
 
@@ -140,7 +140,7 @@ class HTTPFuncEndpoint(HTTPBaseEndpoint):
         self.model = self._create_model(endpoint)
 
     def _get_method(self, _: Request) -> Callable:
-        return self.endpoint
+        return self._endpoint
 
     def _get_params(self, req: Request) -> Params:
         return (req,), self._parse_params(self._get_model(), req)
@@ -158,8 +158,8 @@ class HTTPClassEndpoint(HTTPBaseEndpoint):
         self.models = self._create_models(endpoint)
 
     def _get_method(self, req: Request) -> Callable:
-        self.endpoint.request = req
-        return getattr(self.endpoint, req.method.lower())
+        self._endpoint.request = req
+        return getattr(self._endpoint, req.method.lower())
 
     def _get_params(self, req: Request) -> Params:
         return (), self._parse_params(self._get_model(req), req)
@@ -197,7 +197,7 @@ class WebSocketFuncEndpoint(WebSocketBaseEndpoint):
         self.model = self._create_model(endpoint)
 
     def _get_method(self, _: WebSocket) -> Callable:
-        return self.endpoint
+        return self._endpoint
 
     def _get_params(self, ws: WebSocket) -> Params:
         return (ws,), self._parse_params(self._get_model(), ws)
@@ -212,8 +212,8 @@ class WebSocketClassEndpoint(WebSocketBaseEndpoint):
         self.model = self._create_model(endpoint.__call__)
 
     def _get_method(self, ws: WebSocket) -> Callable:
-        self.endpoint.websocket = ws
-        return self.endpoint.__call__
+        self._endpoint.websocket = ws
+        return self._endpoint.__call__
 
     def _get_params(self, ws: WebSocket) -> Params:
         return (), self._parse_params(self._get_model(), ws)

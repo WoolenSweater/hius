@@ -18,8 +18,8 @@ class TestClient(BaseTestClient):
         self.shutdown_complete = True
 
     async def _wait(self, state):
-        await self.receive_queue.put({'type': f'lifespan.{state}'})
-        message = await self.send_queue.get()
+        await self.stream_receive.send({'type': f'lifespan.{state}'})
+        message = await self.stream_send.receive()
         if message is None and state == 'shutdown':
             return
         assert message['type'] in (

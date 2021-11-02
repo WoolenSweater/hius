@@ -8,7 +8,8 @@ from hius.routing import Router, route, mount, websocket
 from hius.routing.exceptions import (
     NoMatchFound,
     RoutedMethodsError,
-    RoutedPathError
+    RoutedPathError,
+    MountError
 )
 from hius.app import Hius
 
@@ -31,9 +32,22 @@ def user_me(request):
     return Response(content, media_type='text/plain')
 
 
+class CBV:
+
+    def post(self):
+        return Response('POST', media_type='text/plain')
+
+    def put(self):
+        return Response('PUT', media_type='text/plain')
+
+
 router = Router(
     [
         route('/', endpoint=homepage, methods=['GET']),
+        route('/func_manual', endpoint=homepage, methods=['GET']),
+        route('/func_default', endpoint=homepage),
+        route('/cbv_manual', endpoint=CBV, methods=['GET']),
+        route('/cbv_auto', endpoint=CBV),
         mount(
             '/users',
             routes=[
@@ -107,6 +121,18 @@ cli = TestClient(router)
 # ---
 
 
+def test_cbv_methods():
+    assert router._http['plain']['/cbv_manual'][0].methods == {'GET'}
+    assert router._http['plain']['/cbv_auto'][0].methods == {'POST', 'PUT'}
+
+
+def test_func_methods():
+    assert router._http['plain']['/func_manual'][0].methods == {'GET'}
+    assert router._http['plain']['/func_default'][0].methods == {'GET', 'HEAD'}
+
+# ---
+
+
 _params_router_success = [
     ('get', '/', 'Hello, world'),
     ('get', '/users/hius', 'User hius'),
@@ -131,12 +157,14 @@ def test_router_success(method, url, text):
 
 _params_router_error = [
     ('post', '/', 405, 'Method Not Allowed'),
+    ('post', '/int/1', 405, 'Method Not Allowed'),
     ('get', '/foo', 404, 'Not Found'),
     ('get', '/users', 404, 'Not Found'),
     ('get', '/users/hius/', 404, 'Not Found'),
 ]
 _ids_router_error = [
-    '405-method-not-allowed',
+    '405-method-not-allowed-plain',
+    '405-method-not-allowed-dynamic',
     '404-not-found',
     '404-all-users-slash',
     '404-specific-user-slash'
@@ -262,7 +290,8 @@ def test_router_protocol_switch():
         assert session.receive_json() == {'URL': 'ws://testserver/'}
 
     with pytest.raises(WebSocketDisconnect):
-        client.websocket_connect('/404')
+        with client.websocket_connect('/404') as session:
+            session.receive_text()
 
 
 ok = PlainTextResponse('OK')
@@ -344,26 +373,9 @@ def test_mount_at_root():
     assert client.get('/').status_code == 200
 
 
-# ---
-
-
-# def test_host_routing():
-#     pass
-
-
-# def test_host_reverse_urls():
-#     pass
-
-
-# ---
-
-
-# def test_subdomain_routing():
-#     pass
-
-
-# def test_subdomain_reverse_urls():
-#     pass
+def test_mount_error():
+    with pytest.raises(MountError):
+        Router([mount('/', app=ok, routes=[route('/ok', ok)])])
 
 
 # ---

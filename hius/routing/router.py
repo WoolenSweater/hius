@@ -10,9 +10,9 @@ from typing import (
     List
 )
 from starlette.datastructures import URLPath
-from starlette.exceptions import HTTPException
 from starlette.websockets import WebSocketDisconnect
 from starlette.types import Scope, Receive, Send, ASGIApp
+from hius.httpcodes import HTTPNotFound, HTTPMethodNotAllowed
 from hius.routing.utils import Match
 from hius.routing.exceptions import NoMatchFound
 from hius.routing.routes import (
@@ -51,8 +51,7 @@ class Router:
         self.lifespan = lifespan or default_lifespan
 
         if routes is not None:
-            for route in routes:
-                self.__bind(route)
+            self._bind_routes(routes)
 
     async def __call__(self,
                        scope: Scope,
@@ -82,9 +81,9 @@ class Router:
         if match == Match.FULL:
             await endpoint(scope, receive, send)
         elif match == Match.NONE:
-            raise HTTPException(status_code=404)
+            raise HTTPNotFound()
         elif match == Match.PARTIAL:
-            raise HTTPException(status_code=405)
+            raise HTTPMethodNotAllowed()
 
     async def match_websocket(self,
                               scope: Scope,
@@ -146,6 +145,10 @@ class Router:
                 return route.match(scope)
 
     # ---
+
+    def _bind_routes(self, routes: Sequence[BaseRoute]) -> None:
+        for route in routes:
+            self.__bind(route)
 
     def __bind(self, route: BaseRoute) -> None:
         if isinstance(route, Mount):

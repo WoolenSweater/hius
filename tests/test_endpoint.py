@@ -1,7 +1,8 @@
 import pytest
 from starlette.testclient import TestClient
-from starlette.responses import PlainTextResponse
 from starlette.websockets import WebSocketDisconnect
+from hius.responses import PlainTextResponse
+from hius.routing.exceptions import HTTPValidationError
 from hius.routing.endpoint import get_http_endpoint, get_websocket_endpoint
 
 
@@ -53,14 +54,16 @@ class WSClassParams:
         await self.websocket.close()
 
 
-_ids = ['func', 'class', 'initialized-class']
-
-
 # ---
 
 
-@pytest.mark.parametrize('handler',
-                         (http_func, HTTPClass, HTTPClass()), ids=_ids)
+_ids = ['func', 'class', 'initialized-class']
+
+_params_http_no = (http_func, HTTPClass, HTTPClass())
+_params_http_yes = (http_func_params, HTTPClassParams, HTTPClassParams())
+
+
+@pytest.mark.parametrize('handler', _params_http_no, ids=_ids)
 def test_http_no_params(handler):
     cli = TestClient(get_http_endpoint(handler))
 
@@ -68,8 +71,7 @@ def test_http_no_params(handler):
     assert cli.get('/path?param=test').text == 'Hello, world!'
 
 
-@pytest.mark.parametrize('handler',
-                         (http_func_params, HTTPClassParams), ids=_ids[:2])
+@pytest.mark.parametrize('handler', _params_http_yes, ids=_ids)
 def test_http_params_200(handler):
     cli = TestClient(get_http_endpoint(handler))
 
@@ -77,24 +79,22 @@ def test_http_params_200(handler):
     assert cli.get('/path?name=Alice&flag=1').text == 'Hello, Alice! Flag True'
 
 
-@pytest.mark.parametrize('handler',
-                         (http_func_params, HTTPClassParams), ids=_ids[:2])
+@pytest.mark.parametrize('handler', _params_http_yes, ids=_ids)
 def test_http_params_400(handler):
     cli = TestClient(get_http_endpoint(handler))
 
-    assert cli.get('/path').status_code == 400
-    assert cli.get('/path').json() == [{
-        'loc': ['name'],
-        'msg': 'field required',
-        'type': 'value_error.missing'
-    }]
+    with pytest.raises(HTTPValidationError):
+        cli.get('/path')
 
 
 # ---
 
 
-@pytest.mark.parametrize('handler',
-                         (websocket_func, WSClass, WSClass()), ids=_ids)
+_params_ws_no = (websocket_func, WSClass, WSClass())
+_params_ws_yes = (websocket_func_params, WSClassParams, WSClassParams())
+
+
+@pytest.mark.parametrize('handler', _params_ws_no, ids=_ids)
 def test_websocket_no_params(handler):
     cli = TestClient(get_websocket_endpoint(handler))
 
@@ -105,10 +105,9 @@ def test_websocket_no_params(handler):
         assert session.receive_text() == 'Hello, world!'
 
 
-@pytest.mark.parametrize('handler',
-                         (websocket_func_params, WSClassParams), ids=_ids[:2])
+@pytest.mark.parametrize('handler', _params_ws_yes, ids=_ids)
 def test_websocket_params_200(handler):
-    cli = TestClient(get_websocket_endpoint(websocket_func_params))
+    cli = TestClient(get_websocket_endpoint(handler))
 
     with cli.websocket_connect('/path?name=Alice') as session:
         assert session.receive_text() == 'Hello, Alice! Flag False'
@@ -117,13 +116,13 @@ def test_websocket_params_200(handler):
         assert session.receive_text() == 'Hello, Alice! Flag True'
 
 
-@pytest.mark.parametrize('handler',
-                         (websocket_func_params, WSClassParams), ids=_ids[:2])
+@pytest.mark.parametrize('handler', _params_ws_yes, ids=_ids)
 def test_websocket_params_400(handler):
-    cli = TestClient(get_websocket_endpoint(websocket_func_params))
+    cli = TestClient(get_websocket_endpoint(handler))
 
     with pytest.raises(WebSocketDisconnect):
-        cli.websocket_connect('/path')
+        with cli.websocket_connect('/path') as session:
+            session.receive_text()
 
 
 # ---

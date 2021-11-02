@@ -11,6 +11,8 @@ from starlette.middleware.errors import ServerErrorMiddleware
 from starlette.exceptions import ExceptionMiddleware
 from starlette.types import Scope, Receive, Send, ASGIApp
 from hius.types import ExceptionHandlers, LifespanGenerator
+from hius.handlers.exceptions import validation_error_handler
+from hius.routing.exceptions import HTTPValidationError
 from hius.routing.lifespan import Lifespan
 from hius.routing.routes import BaseRoute
 from hius.routing.utils import URLPath
@@ -30,7 +32,7 @@ class Hius:
         lifespan = Lifespan(on_startup, on_shutdown, on_lifespan)
         self.router = Router(routes=routes, lifespan=lifespan)
 
-        self.exception_handlers = exception_handlers or {}
+        self.exception_handlers = self._set_exc_handlers(exception_handlers)
 
         self.baggage = {}
 
@@ -53,6 +55,13 @@ class Hius:
     def _set_scope_self(self, scope: Scope) -> NoReturn:
         if 'app' not in scope:
             scope['app'] = self
+
+    def _set_exc_handlers(self,
+                          handlers: ExceptionHandlers) -> ExceptionHandlers:
+        return {
+            HTTPValidationError: validation_error_handler,
+            **(handlers or {})
+        }
 
     def build_middleware_stack(self) -> ASGIApp:
         debug = self.debug
@@ -80,6 +89,9 @@ class Hius:
         return self.router.url_path_for(name, **path_params)
 
     # ---
+
+    def add_routes(self, routes: Sequence[BaseRoute]) -> NoReturn:
+        self.router._bind_routes(routes)
 
     def add_route(self,
                   path: str,

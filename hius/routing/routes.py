@@ -16,6 +16,8 @@ from starlette.types import Scope, ASGIApp
 from hius.routing.utils import Match, URLPath
 from hius.routing.parser import parse_path
 from hius.routing.endpoint import (
+    HTTP_METHODS,
+    HTTPClassEndpoint,
     BaseEndpoint,
     get_http_endpoint,
     get_websocket_endpoint
@@ -28,12 +30,13 @@ from hius.routing.exceptions import (
 )
 import hius.routing as router
 
+
 RouteMatch = Tuple[Match, Optional[Callable]]
 
 
 class BaseRoute:
 
-    __slots__ = 'path', 'endpoint', 'name'
+    __slots__ = 'path', 'endpoint', 'name',
 
     def __init__(self,
                  path: str,
@@ -56,14 +59,18 @@ class BaseRoute:
             return get_websocket_endpoint(endpoint)
 
     def _prepare_name(self, name: Optional[str]) -> str:
-        return name or self.endpoint.name
+        return name or self.endpoint._name
 
     def _prepare_methods(self, methods: Optional[Sequence[str]]) -> Set[str]:
-        if methods is None:
-            return {'GET', 'HEAD'}
-
         if isinstance(methods, (list, tuple, set)):
             return {str(method).upper() for method in methods}
+
+        if methods is None:
+            if isinstance(self.endpoint, HTTPClassEndpoint):
+                return {method.upper() for method in HTTP_METHODS
+                        if hasattr(self.endpoint._endpoint, method)}
+            else:
+                return {'GET', 'HEAD'}
 
         raise RoutedMethodsError('"methods" must be list, '
                                  'tuple, set or None type')

@@ -53,6 +53,14 @@ class Hius(debug=False,
 
 ---
 
+Добавление списка HTTP роутов.
+
+**add_routes**(routes)
+
+* **routes** (_Sequence[BaseRoute]_) - список роутов.
+
+---
+
 Добавление HTTP роута.
 
 **add_route**(path, endpoint, methods=None, name=None)

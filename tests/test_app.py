@@ -2,11 +2,11 @@ import os
 import pytest
 from starlette.testclient import TestClient
 from starlette.exceptions import HTTPException
-from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from hius import Hius
-from hius.routing import Router
+from hius.routing import Router, route
 from hius.handlers import StaticFiles
+from hius.responses import JSONResponse, PlainTextResponse
 
 
 app = Hius()
@@ -78,6 +78,11 @@ def user_page(request, username: str):
 app.mount('/users', users)
 
 
+@app.route('/400')
+def bad_request(request, username: str):
+    pass
+
+
 @app.route('/500')
 def runtime_error(request):
     raise RuntimeError()
@@ -101,6 +106,15 @@ def cli():
 @pytest.fixture
 def cli_exc():
     return TestClient(app, raise_server_exceptions=False)
+
+
+# ---
+
+
+def test_baggage():
+    app['variable'] = 'var'
+    assert app.baggage == {'variable': 'var'}
+    assert app['variable'] == 'var'
 
 
 # ---
@@ -172,8 +186,17 @@ def test_websocket_route(cli):
 
 # --
 
-
 def test_400(cli):
+    response = cli.get('/400')
+    assert response.status_code == 400
+    assert response.json() == [{
+        'loc': ['username'],
+        'msg': 'field required',
+        'type': 'value_error.missing'
+    }]
+
+
+def test_404(cli):
     response = cli.get('/404')
     assert response.status_code == 404
     assert response.json() == {'detail': 'Not Found'}
@@ -247,6 +270,21 @@ def test_app_add_route():
         return PlainTextResponse('Hello, World!')
 
     app.add_route('/', homepage)
+
+    cli = TestClient(app)
+
+    response = cli.get('/')
+    assert response.status_code == 200
+    assert response.text == 'Hello, World!'
+
+
+def test_app_add_routes():
+    app = Hius()
+
+    async def homepage(request):
+        return PlainTextResponse('Hello, World!')
+
+    app.add_routes([route('/', homepage)])
 
     cli = TestClient(app)
 
