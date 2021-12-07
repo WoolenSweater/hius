@@ -425,7 +425,7 @@
 <p>Ознакомится с ними можно в <a href="https://www.starlette.io/responses/">документации родительской библиотеки</a>.</p>
 <h2 id="http-ошибки">HTTP ошибки<a class="headerlink" href="#http-ошибки" title="Permanent link">&para;</a></h2>
 <p>Если вам нужно вернуть клиенту определённый HTTP код с его стандартным описанием, вы можете импортировать вспомогательный класс и возбудить исключение в любом месте в процессе обработки запроса.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">hius.httperrors</span> <span class="kn">import</span> <span class="n">HTTPUnauthorized</span>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">hius.httpcodes</span> <span class="kn">import</span> <span class="n">HTTPUnauthorized</span>
 <span class="kn">from</span> <span class="nn">hius.responses</span> <span class="kn">import</span> <span class="n">PlainTextResponse</span>
 
 
