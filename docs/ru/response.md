@@ -13,7 +13,7 @@ from hius.responses import PlainTextResponse, ...
 Если вам нужно вернуть клиенту определённый HTTP код с его стандартным описанием, вы можете импортировать вспомогательный класс и возбудить исключение в любом месте в процессе обработки запроса.
 
 ```python
-from hius.httperrors import HTTPUnauthorized
+from hius.httpcodes import HTTPUnauthorized
 from hius.responses import PlainTextResponse
 
 

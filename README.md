@@ -8,4 +8,5 @@
 Hius - минималистичный [ASGI](https://asgi.readthedocs.io/en/latest/) веб-фрэймворк.
 
 
-Список изменений - [CHANGELOG](CHANGELOG.md)
+Документация - [Documentation](https://woolensweater.github.io/hius/)  
+Список изменений - [Changelog](https://github.com/WoolenSweater/hius/blob/main/CHANGELOG.md)

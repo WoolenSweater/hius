@@ -28,30 +28,30 @@ async def websocket_func_params(websocket, name: str, flag: bool = False):
 
 class HTTPClass:
 
-    def get(self):
+    def get(self, request):
         return PlainTextResponse(f'Hello, world!')
 
 
 class HTTPClassParams:
 
-    def get(self, name: str, flag: bool = False):
+    def get(self, request, name: str, flag: bool = False):
         return PlainTextResponse(f'Hello, {name}! Flag {flag}')
 
 
 class WSClass:
 
-    async def __call__(self):
-        await self.websocket.accept()
-        await self.websocket.send_text(f'Hello, world!')
-        await self.websocket.close()
+    async def call(self, websocket):
+        await websocket.accept()
+        await websocket.send_text(f'Hello, world!')
+        await websocket.close()
 
 
 class WSClassParams:
 
-    async def __call__(self, name: str, flag: bool = False):
-        await self.websocket.accept()
-        await self.websocket.send_text(f'Hello, {name}! Flag {flag}')
-        await self.websocket.close()
+    async def call(self, websocket, name: str, flag: bool = False):
+        await websocket.accept()
+        await websocket.send_text(f'Hello, {name}! Flag {flag}')
+        await websocket.close()
 
 
 # ---
@@ -121,6 +121,43 @@ def test_websocket_params_400(handler):
     cli = TestClient(get_websocket_endpoint(handler))
 
     with pytest.raises(WebSocketDisconnect):
+        with cli.websocket_connect('/path') as session:
+            session.receive_text()
+
+
+# ---
+
+# TODO Возможно стоит сделать проверку при инициализации
+
+def func_no_args():
+    pass
+
+
+class ClassNoArgs:
+
+    async def get(self):
+        pass
+
+    async def call(self):
+        pass
+
+
+_params_no_arg = (func_no_args, ClassNoArgs, ClassNoArgs())
+
+
+@pytest.mark.parametrize('handler', _params_no_arg, ids=_ids)
+def test_no_args_http(handler):
+    cli = TestClient(get_http_endpoint(handler))
+
+    with pytest.raises(TypeError):
+        cli.get('/path')
+
+
+@pytest.mark.parametrize('handler', _params_no_arg, ids=_ids)
+def test_no_args_websocket(handler):
+    cli = TestClient(get_websocket_endpoint(handler))
+
+    with pytest.raises(TypeError):
         with cli.websocket_connect('/path') as session:
             session.receive_text()
 

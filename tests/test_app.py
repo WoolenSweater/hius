@@ -1,5 +1,8 @@
 import os
 import pytest
+import asyncio
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 from starlette.testclient import TestClient
 from starlette.exceptions import HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -55,10 +58,10 @@ async def async_func_homepage(request):
 
 @app.route('/class', methods=['GET', 'POST'])
 class Homepage:
-    def get(self):
+    def get(self, request):
         return PlainTextResponse('Hello, world! (SYNC, GET)')
 
-    async def post(self):
+    async def post(self, request):
         return PlainTextResponse('Hello, world! (ASYNC, POST)')
 
 
@@ -308,3 +311,27 @@ def test_app_add_websocket_route():
     with cli.websocket_connect('/ws') as session:
         text = session.receive_text()
         assert text == 'Hello, world!'
+
+
+# ---
+
+
+class MultipartPost:
+
+    async def post(self, req):
+        await asyncio.sleep(0.1)
+        form = await req.form()
+        file = await form['file'].read()
+        return PlainTextResponse(file)
+
+
+def send(cli, data):
+    return cli.post('/', files={'file': ('test.txt', data)}).content.decode()
+
+
+def test_multipart_form():
+    cli = TestClient(Hius(routes=[route('/', MultipartPost)]))
+    data = sorted(f'data{n}' for n in range(20))
+
+    with ThreadPoolExecutor() as pool:
+        assert sorted(pool.map(partial(send, cli), data)) == data

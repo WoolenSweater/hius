@@ -3,7 +3,7 @@
 Основной класс, связывающий воедино весь функционал фрэймворка.
 
 ```python
-from hius import Huis
+from hius import Hius
 ```
 
 ## Особенности

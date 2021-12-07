@@ -34,10 +34,10 @@ def user_me(request):
 
 class CBV:
 
-    def post(self):
+    def post(self, request):
         return Response('POST', media_type='text/plain')
 
-    def put(self):
+    def put(self, request):
         return Response('PUT', media_type='text/plain')
 
 
@@ -262,13 +262,13 @@ def http_endpoint(request):
 
 
 class WebSocketEndpoint:
-    async def __call__(self):
-        await self.websocket.accept()
-        await self.websocket.send_json(self._get_json())
-        await self.websocket.close()
+    async def call(self, websocket):
+        await websocket.accept()
+        await websocket.send_json(self._get_json(websocket))
+        await websocket.close()
 
-    def _get_json(self):
-        return {'URL': str(self.websocket.url_for('ws_endpoint'))}
+    def _get_json(self, websocket):
+        return {'URL': str(websocket.url_for('ws_endpoint'))}
 
 
 mixed_protocol_router = Router(

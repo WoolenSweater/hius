@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='hius',
-    version='0.1.2',
+    version='0.2.0',
     description='Minimalistic ASGI web framework',
     long_description=open('README.md', 'r').read(),
     long_description_content_type='text/markdown',
@@ -14,7 +14,8 @@ setup(
     packages=find_packages(exclude=['tests*']),
     install_requires=['starlette', 'pydantic'],
     extras_require={
-        'uvicorn': ['uvicorn']
+        'uvicorn': ['uvicorn'],
+        'multipart': ['python-multipart']
     },
     python_requires='>=3.7',
     classifiers=[
@@ -31,7 +32,7 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9'
+        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10'
     ]
 )

@@ -5,10 +5,12 @@
 * Обычная (sync/async) функция (Function Based View, FBV).
 * Класс, в котором реализованы (sync/async) функции, обрабатываемых HTTP-методов (Class Based View, CBV).
 
+Важные замечания:
+
+* Каждый метод обработки запроса должен **обязательно** принимать хотя бы один параметр в котором будет объект запроса. У HTTP это Request, у веб-сокетов WebSocket.
+* Особенностью CBV подхода является возможность обратиться к самому приложению следующим образом - `self.app`. Однако, поле будет установлено только если его ещё нет у endpoint'а и объект приложения доступен в scope запроса. Кроме того, оно **не переустанавливается** при каждом запросе.
+
 === "FBV"
-
-    Каждая функция должна обязательно принимать хотя бы один параметр в котором будет объект запроса.
-
     ```python
     from hius import Hius
     from hius.requests import Request
@@ -30,21 +32,19 @@
     ```
 
 === "CBV"
-
-    При использовании CBV подхода, объект запроса будет доступен следующим образом - `self.request`.
-
     ```python
     from hius import Hius
+    from hius.requests import Request
     from hius.responses import PlainTextResponse
 
     app = Hius()
 
 
     class Page:
-        def get(self):
+        def get(self, request: Request):
             return PlainTextResponse('text')
 
-        async def post(self):
+        async def post(self, request: Request):
             return PlainTextResponse('ok')
 
 

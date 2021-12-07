@@ -1,8 +1,10 @@
 from typing import (
+    NoReturn,
     Optional,
     Callable,
     Union,
     Tuple,
+    List,
     Type,
     Dict,
     Any
@@ -40,7 +42,7 @@ class BaseEndpoint:
     async def __call__(self,
                        scope: Scope,
                        receive: Receive,
-                       send: Send) -> None:
+                       send: Send) -> NoReturn:
         raise NotImplementedError  # pragma: no cover
 
     async def _handle(self,
@@ -52,6 +54,12 @@ class BaseEndpoint:
         else:
             return await run_in_threadpool(method, *args, **kwargs)
 
+    def _set_app(self, req_or_ws: Union[Request, WebSocket]) -> NoReturn:
+        if not hasattr(self._endpoint, 'app') and 'app' in req_or_ws.scope:
+            self._endpoint.app = req_or_ws.app
+
+    # ---
+
     def __get_model_name(self, func: Callable) -> str:
         if self._name == func.__name__:
             return f'{self._name}_model'
@@ -59,21 +67,15 @@ class BaseEndpoint:
 
     def __get_model_fields(self, func: Callable) -> ModelFields:
         model_fields = {}
-        for idx, param in enumerate(signature(func).parameters.values()):
-            if self.__need_skip_first_arg(idx):
-                continue
-
+        for param in self.__get_signature_params(func):
             default = self.__get_default(param)
             annotation = self.__get_annotation(param)
 
             model_fields[param.name] = (annotation, default)
         return model_fields
 
-    def __need_skip_first_arg(self, idx: int) -> bool:
-        if idx == 0:
-            if isinstance(self, (HTTPFuncEndpoint, WebSocketFuncEndpoint)):
-                return True
-        return False
+    def __get_signature_params(self, func: Callable) -> List:
+        return list(signature(func).parameters.values())[1:]
 
     def __get_default(self, param: Parameter) -> Any:
         if param.default == inspect_empty:
@@ -96,11 +98,12 @@ class BaseEndpoint:
             raise RuntimeError(f'cannot create {model_name} with '
                                f'the following fields {model_fields}')
 
-    def _create_models(self, cls: Callable) -> Dict[str, Type[BaseModel]]:
+    def _create_models(self, cls: Any) -> Dict[str, Type[BaseModel]]:
         models = {}
         for method in HTTP_METHODS:
             if hasattr(cls, method):
-                models[method] = self._create_model(getattr(cls, method))
+                models[method.upper()] = self._create_model(getattr(cls,
+                                                                    method))
         return models
 
     # ---
@@ -120,7 +123,7 @@ class HTTPBaseEndpoint(BaseEndpoint):
     async def __call__(self,
                        scope: Scope,
                        receive: Receive,
-                       send: Send) -> None:
+                       send: Send) -> NoReturn:
         try:
             request = Request(scope, receive)
             response = await self._handle(self._get_method(request),
@@ -129,6 +132,9 @@ class HTTPBaseEndpoint(BaseEndpoint):
             raise HTTPValidationError(exc.raw_errors, exc.model)
 
         await response(scope, receive, send)
+
+    def _get_params(self, req: Request) -> Params:
+        return (req,), self._parse_params(self._get_model(req), req)
 
 
 class HTTPFuncEndpoint(HTTPBaseEndpoint):
@@ -142,10 +148,7 @@ class HTTPFuncEndpoint(HTTPBaseEndpoint):
     def _get_method(self, _: Request) -> Callable:
         return self._endpoint
 
-    def _get_params(self, req: Request) -> Params:
-        return (req,), self._parse_params(self._get_model(), req)
-
-    def _get_model(self) -> Type[BaseModel]:
+    def _get_model(self, _: Request) -> Type[BaseModel]:
         return self.model
 
 
@@ -158,14 +161,11 @@ class HTTPClassEndpoint(HTTPBaseEndpoint):
         self.models = self._create_models(endpoint)
 
     def _get_method(self, req: Request) -> Callable:
-        self._endpoint.request = req
+        self._set_app(req)
         return getattr(self._endpoint, req.method.lower())
 
-    def _get_params(self, req: Request) -> Params:
-        return (), self._parse_params(self._get_model(req), req)
-
     def _get_model(self, req: Request) -> Type[BaseModel]:
-        return self.models[req.method.lower()]
+        return self.models[req.method]
 
 
 # ---
@@ -176,7 +176,7 @@ class WebSocketBaseEndpoint(BaseEndpoint):
     async def __call__(self,
                        scope: Scope,
                        receive: Receive,
-                       send: Send) -> None:
+                       send: Send) -> NoReturn:
         try:
             websocket = WebSocket(scope, receive, send)
             await self._handle(self._get_method(websocket),
@@ -184,8 +184,8 @@ class WebSocketBaseEndpoint(BaseEndpoint):
         except ValidationError:
             raise WebSocketDisconnect()
 
-    def _get_model(self) -> Type[BaseModel]:
-        return self.model
+    def _get_params(self, ws: WebSocket) -> Params:
+        return (ws,), self._parse_params(self.model, ws)
 
 
 class WebSocketFuncEndpoint(WebSocketBaseEndpoint):
@@ -199,9 +199,6 @@ class WebSocketFuncEndpoint(WebSocketBaseEndpoint):
     def _get_method(self, _: WebSocket) -> Callable:
         return self._endpoint
 
-    def _get_params(self, ws: WebSocket) -> Params:
-        return (ws,), self._parse_params(self._get_model(), ws)
-
 
 class WebSocketClassEndpoint(WebSocketBaseEndpoint):
 
@@ -209,14 +206,11 @@ class WebSocketClassEndpoint(WebSocketBaseEndpoint):
 
     def __init__(self, endpoint) -> None:
         super().__init__(endpoint, name=endpoint.__class__.__name__)
-        self.model = self._create_model(endpoint.__call__)
+        self.model = self._create_model(endpoint.call)
 
     def _get_method(self, ws: WebSocket) -> Callable:
-        self._endpoint.websocket = ws
-        return self._endpoint.__call__
-
-    def _get_params(self, ws: WebSocket) -> Params:
-        return (), self._parse_params(self._get_model(), ws)
+        self._set_app(ws)
+        return self._endpoint.call
 
 
 # ---
