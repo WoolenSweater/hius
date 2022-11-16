@@ -24,8 +24,8 @@ from hius.routing.endpoint import (
 )
 from hius.routing.exceptions import (
     MountError,
-    RoutedPathError,
-    RoutedMethodsError,
+    RoutePathError,
+    RouteMethodsError,
     NoMatchFound
 )
 import hius.routing as router
@@ -59,7 +59,7 @@ class BaseRoute:
             return get_websocket_endpoint(endpoint)
 
     def _prepare_name(self, name: Optional[str]) -> str:
-        return name or self.endpoint._name
+        return name or self.endpoint.name
 
     def _prepare_methods(self, methods: Optional[Sequence[str]]) -> Set[str]:
         if isinstance(methods, (list, tuple, set)):
@@ -72,8 +72,8 @@ class BaseRoute:
             else:
                 return {'GET', 'HEAD'}
 
-        raise RoutedMethodsError('"methods" must be list, '
-                                 'tuple, set or None type')
+        raise RouteMethodsError('"methods" must be list, '
+                                'tuple, set or None type')
 
 
 class DynamicBaseRoute(BaseRoute):
@@ -251,7 +251,7 @@ WebsocketRoute = (PlainWebsocketRoute, DynamicWebsocketRoute)
 
 def __check_and_strip_path(path: str) -> str:
     if not path.startswith('/'):
-        raise RoutedPathError('routed path must start with "/"')
+        raise RoutePathError('routed/mounted path must start with "/"')
     return path.rstrip()
 
 
@@ -270,7 +270,7 @@ def mount(path: str,
           routes: Sequence[BaseRoute] = None,
           app: ASGIApp = None,
           name: Optional[str] = None) -> Mount:
-    return Mount(path, routes, app, name)
+    return Mount(__check_and_strip_path(path), routes, app, name)
 
 
 def websocket(path: str,

@@ -1,5 +1,4 @@
 from typing import (
-    NoReturn,
     Optional,
     Callable,
     Union,
@@ -37,12 +36,13 @@ class BaseEndpoint:
 
     def __init__(self, endpoint: Callable, *, name: str) -> None:
         self._endpoint = endpoint
-        self._name = name
+
+        self.name = name
 
     async def __call__(self,
                        scope: Scope,
                        receive: Receive,
-                       send: Send) -> NoReturn:
+                       send: Send) -> None:
         raise NotImplementedError  # pragma: no cover
 
     async def _handle(self,
@@ -54,16 +54,19 @@ class BaseEndpoint:
         else:
             return await run_in_threadpool(method, *args, **kwargs)
 
-    def _set_app(self, req_or_ws: Union[Request, WebSocket]) -> NoReturn:
+    def _set_app(self, req_or_ws: Union[Request, WebSocket]) -> None:
         if not hasattr(self._endpoint, 'app') and 'app' in req_or_ws.scope:
             self._endpoint.app = req_or_ws.app
 
     # ---
 
     def __get_model_name(self, func: Callable) -> str:
-        if self._name == func.__name__:
-            return f'{self._name}_model'
-        return f'{self._name}_{func.__name__}_model'
+        base_name = self.name.title().replace('_', '')
+
+        if self.name != func.__name__:
+            base_name += func.__name__.title()
+
+        return base_name + 'Model'
 
     def __get_model_fields(self, func: Callable) -> ModelFields:
         model_fields = {}
@@ -101,9 +104,9 @@ class BaseEndpoint:
     def _create_models(self, cls: Any) -> Dict[str, Type[BaseModel]]:
         models = {}
         for method in HTTP_METHODS:
-            if hasattr(cls, method):
-                models[method.upper()] = self._create_model(getattr(cls,
-                                                                    method))
+            if not hasattr(cls, method):
+                continue
+            models[method.upper()] = self._create_model(getattr(cls, method))
         return models
 
     # ---
@@ -123,7 +126,7 @@ class HTTPBaseEndpoint(BaseEndpoint):
     async def __call__(self,
                        scope: Scope,
                        receive: Receive,
-                       send: Send) -> NoReturn:
+                       send: Send) -> None:
         try:
             request = Request(scope, receive)
             response = await self._handle(self._get_method(request),
@@ -141,7 +144,7 @@ class HTTPFuncEndpoint(HTTPBaseEndpoint):
 
     __slots__ = 'model',
 
-    def __init__(self, endpoint):
+    def __init__(self, endpoint) -> None:
         super().__init__(endpoint, name=endpoint.__name__)
         self.model = self._create_model(endpoint)
 
@@ -156,7 +159,7 @@ class HTTPClassEndpoint(HTTPBaseEndpoint):
 
     __slots__ = 'models',
 
-    def __init__(self, endpoint):
+    def __init__(self, endpoint) -> None:
         super().__init__(endpoint, name=endpoint.__class__.__name__)
         self.models = self._create_models(endpoint)
 
@@ -176,7 +179,7 @@ class WebSocketBaseEndpoint(BaseEndpoint):
     async def __call__(self,
                        scope: Scope,
                        receive: Receive,
-                       send: Send) -> NoReturn:
+                       send: Send) -> None:
         try:
             websocket = WebSocket(scope, receive, send)
             await self._handle(self._get_method(websocket),

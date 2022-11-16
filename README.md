@@ -1,4 +1,6 @@
-<img align="right" src="docs/img/hius_logo.svg">
+<div title='Logo & Banner Designer @ Sergey Varnachev'>
+    <img align="right" src="docs/img/hius_logo.svg">
+</div>
 
 # Hius
 

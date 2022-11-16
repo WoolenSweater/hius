@@ -5,11 +5,11 @@ class MountError(Exception):
     '''Routes Error'''
 
 
-class RoutedPathError(Exception):
+class RoutePathError(Exception):
     '''Routes Error'''
 
 
-class RoutedMethodsError(Exception):
+class RouteMethodsError(Exception):
     '''Routes Error'''
 
 

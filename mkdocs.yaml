@@ -44,7 +44,10 @@ nav:
 markdown_extensions:
   - toc:
       permalink: true
-      slugify: !!python/name:pymdownx.slugs.uslugify
-  - admonition
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tabbed:
+      alternate_style: true 
   - pymdownx.superfences
-  - pymdownx.tabbed
+  - admonition

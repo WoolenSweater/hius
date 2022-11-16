@@ -7,8 +7,8 @@ from starlette.responses import JSONResponse, PlainTextResponse, Response
 from hius.routing import Router, route, mount, websocket
 from hius.routing.exceptions import (
     NoMatchFound,
-    RoutedMethodsError,
-    RoutedPathError,
+    RouteMethodsError,
+    RoutePathError,
     MountError
 )
 from hius.app import Hius
@@ -447,14 +447,14 @@ def test_duplicated_param_names():
 
 
 def test_router_wrong_type_methods():
-    with pytest.raises(RoutedMethodsError):
+    with pytest.raises(RouteMethodsError):
         @router.route('/typeerror', methods='get, post')
         def typerror(request):
             pass
 
 
 def test_router_route_without_slash():
-    with pytest.raises(RoutedPathError):
+    with pytest.raises(RoutePathError):
         @router.route('badroute')
         def badroute(request):
             pass

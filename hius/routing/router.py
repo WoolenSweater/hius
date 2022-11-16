@@ -7,6 +7,7 @@ from typing import (
     Optional,
     Sequence,
     Iterator,
+    Tuple,
     List
 )
 from starlette.datastructures import URLPath
@@ -31,6 +32,7 @@ from hius.routing.routes import (
 Lifespan = Callable[[Scope, Receive, Send], Awaitable]
 Plain = DefaultDict[str, List[BaseRoute]]
 Dynamic = List[BaseRoute]
+PathsAndRoute = Tuple[str, BaseRoute]
 
 
 class Router:
@@ -217,9 +219,24 @@ class Router:
         for route in chain(http, webs, self._mounted):
             try:
                 path = route.url_path_for(name)
-                if path_params:
-                    return path.format(**path_params)
-                return path
+                return path.format(**path_params) if path_params else path
             except NoMatchFound:
                 pass
         raise NoMatchFound
+
+    def iter_http_routes(self, paths: list = []) -> Iterator[PathsAndRoute]:
+        for mnt in self._mounted:
+            paths.append(mnt.path)
+
+            if isinstance(mnt.app, type(self)):
+                router = mnt.app
+            else:
+                router = mnt.app.router
+
+            for paths, route in router.iter_http_routes(paths=paths):
+                yield paths, route
+
+            paths.pop()
+
+        for route in self.__route_iter(**self._http):
+            yield paths, route

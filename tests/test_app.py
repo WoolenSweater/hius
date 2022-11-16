@@ -326,7 +326,7 @@ class MultipartPost:
 
 
 def send(cli, data):
-    return cli.post('/', files={'file': ('test.txt', data)}).content.decode()
+    return cli.post('/', files={'file': data.encode()}).content.decode()
 
 
 def test_multipart_form():
